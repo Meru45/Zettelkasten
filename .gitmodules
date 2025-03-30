@@ -1,0 +1,3 @@
+[submodule "mcp-comarison-server"]
+	path = mcp-comarison-server
+	url = https://github.com/Srish-ty/MCP-Testing-interface-for-LLMs
