@@ -48,6 +48,35 @@ server.tool(
 );
 console.log("Registered get_msg_context tool");
 
+server.tool(
+  "store_message",
+  { 
+    userId: z.string().describe("User Id"),
+    sessionId: z.string().describe("Session Id"),
+    messageContent: z.string().describe("Content of the message to store"),
+    role: z.string().optional().describe("Role of the message (default: 'user')"),
+    metadata: z.record(z.any()).optional().describe("Additional metadata to store with the message")
+  },
+  async ({ userId, sessionId, messageContent, role = "user", metadata = {} }) => {
+    const messageId = await knowledgeBase.storeMessage(
+      userId,
+      sessionId,
+      messageContent,
+      role,
+      metadata
+    );
+    
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({ success: true, messageId })
+        }
+      ]
+    };
+  }
+);
+
 const app: Express = express();
 console.log("Express app created");
 
@@ -74,12 +103,15 @@ app.get("/", (req: Request, res: Response) => {
     tools: [
       { name: "add", description: "Add two numbers together" },
       { name: "search", description: "Search the web using Brave Search API" },
+      { name: "get_msg_context", description: "Get message context based on a query" },
+      { name: "store_message", description: "Store a message in the knowledge base" }
     ],
   });
   console.log("Responded to root endpoint");
 });
 
 let transport: SSEServerTransport;
+
 app.get("/sse", async (req: Request, res: Response) => {
   console.log("Received request to SSE endpoint");
   transport = new SSEServerTransport("/get-msg-context", res);
