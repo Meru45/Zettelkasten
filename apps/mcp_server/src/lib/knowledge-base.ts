@@ -18,8 +18,8 @@ const VECTOR_DIMENSION = process.env.VECTOR_DIMENSION || 1536;
 const CONTEXT_CACHE_SIZE = parseInt(process.env.CONTEXT_CACHE_SIZE || "100");
 const SESSION_CACHE_SIZE = parseInt(process.env.SESSION_CACHE_SIZE || "50");
 
-console.log(
-  `[CONFIG] Initializing with: PINECONE_INDEX_NAME=${PINECONE_INDEX_NAME}, VECTOR_DIMENSION=${VECTOR_DIMENSION}, CONTEXT_CACHE_SIZE=${CONTEXT_CACHE_SIZE}, SESSION_CACHE_SIZE=${SESSION_CACHE_SIZE}`,
+process.stdout.write(
+  `[CONFIG] Initializing with: PINECONE_INDEX_NAME=${PINECONE_INDEX_NAME}, VECTOR_DIMENSION=${VECTOR_DIMENSION}, CONTEXT_CACHE_SIZE=${CONTEXT_CACHE_SIZE}, SESSION_CACHE_SIZE=${SESSION_CACHE_SIZE}\n`,
 );
 
 // Types
@@ -57,36 +57,38 @@ class SemanticCache<T> {
     this.cache = new Map();
     this.maxSize = maxSize;
     this.openai = openai;
-    console.log(`[SEMANTIC_CACHE] Initialized with max size: ${maxSize}`);
+    process.stdout.write(
+      `[SEMANTIC_CACHE] Initialized with max size: ${maxSize}\n`,
+    );
   }
 
   public async get(key: string): Promise<T | null> {
-    console.log(`[SEMANTIC_CACHE] Attempting to get: ${key}`);
+    process.stdout.write(`[SEMANTIC_CACHE] Attempting to get: ${key}\n`);
     const entry = this.cache.get(key);
     if (entry) {
       entry.lastAccessed = Date.now();
       this.cacheHits++;
-      console.log(
-        `[SEMANTIC_CACHE] Cache HIT for key: ${key}, total hits: ${this.cacheHits}`,
+      process.stdout.write(
+        `[SEMANTIC_CACHE] Cache HIT for key: ${key}, total hits: ${this.cacheHits}\n`,
       );
       return entry.data;
     }
     this.cacheMisses++;
-    console.log(
-      `[SEMANTIC_CACHE] Cache MISS for key: ${key}, total misses: ${this.cacheMisses}`,
+    process.stdout.write(
+      `[SEMANTIC_CACHE] Cache MISS for key: ${key}, total misses: ${this.cacheMisses}\n`,
     );
     return null;
   }
 
   public async set(key: string, data: T, queryText: string): Promise<void> {
-    console.log(
-      `[SEMANTIC_CACHE] Setting cache entry for key: ${key}, query length: ${queryText.length}`,
+    process.stdout.write(
+      `[SEMANTIC_CACHE] Setting cache entry for key: ${key}, query length: ${queryText.length}\n`,
     );
     const embedding = await this.generateEmbedding(queryText);
 
     if (this.cache.size >= this.maxSize) {
-      console.log(
-        `[SEMANTIC_CACHE] Cache full (size: ${this.cache.size}), evicting entry`,
+      process.stdout.write(
+        `[SEMANTIC_CACHE] Cache full (size: ${this.cache.size}), evicting entry\n`,
       );
       await this.evictLeastSimilar(embedding);
     }
@@ -98,8 +100,8 @@ class SemanticCache<T> {
       embedding,
       key,
     });
-    console.log(
-      `[SEMANTIC_CACHE] Successfully set cache entry, new size: ${this.cache.size}`,
+    process.stdout.write(
+      `[SEMANTIC_CACHE] Successfully set cache entry, new size: ${this.cache.size}\n`,
     );
   }
 
@@ -111,8 +113,8 @@ class SemanticCache<T> {
   } {
     const total = this.cacheHits + this.cacheMisses;
     const hitRate = total === 0 ? 0 : this.cacheHits / total;
-    console.log(
-      `[SEMANTIC_CACHE] Stats - Hits: ${this.cacheHits}, Misses: ${this.cacheMisses}, Size: ${this.cache.size}, Hit Rate: ${hitRate.toFixed(2)}`,
+    process.stdout.write(
+      `[SEMANTIC_CACHE] Stats - Hits: ${this.cacheHits}, Misses: ${this.cacheMisses}, Size: ${this.cache.size}, Hit Rate: ${hitRate.toFixed(2)}\n`,
     );
     return {
       hits: this.cacheHits,
@@ -123,36 +125,37 @@ class SemanticCache<T> {
   }
 
   private async generateEmbedding(text: string): Promise<number[]> {
-    console.log(
-      `[SEMANTIC_CACHE] Generating embedding for text of length: ${text.length}`,
+    process.stdout.write(
+      `[SEMANTIC_CACHE] Generating embedding for text of length: ${text.length}\n`,
     );
     try {
       const response = await this.openai.embeddings.create({
         model: EMBEDDING_MODEL,
         input: text,
       });
-      console.log(
-        `[SEMANTIC_CACHE] Successfully generated embedding with dimension: ${response.data[0].embedding.length}`,
+      process.stdout.write(
+        `[SEMANTIC_CACHE] Successfully generated embedding with dimension: ${response.data[0].embedding.length}\n`,
       );
       return response.data[0].embedding;
     } catch (error) {
-      console.error(
-        "[SEMANTIC_CACHE] Error generating embedding for cache:",
-        error,
+      process.stderr.write(
+        `[SEMANTIC_CACHE] Error generating embedding for cache: ${error}\n`,
       );
-      console.log(
-        `[SEMANTIC_CACHE] Returning zero vector with dimension: ${VECTOR_DIMENSION}`,
+      process.stdout.write(
+        `[SEMANTIC_CACHE] Returning zero vector with dimension: ${VECTOR_DIMENSION}\n`,
       );
       return new Array(parseInt(VECTOR_DIMENSION.toString())).fill(0);
     }
   }
 
   private async evictLeastSimilar(newEmbedding: number[]): Promise<void> {
-    console.log(
-      `[SEMANTIC_CACHE] Starting eviction process for cache with size: ${this.cache.size}`,
+    process.stdout.write(
+      `[SEMANTIC_CACHE] Starting eviction process for cache with size: ${this.cache.size}\n`,
     );
     if (this.cache.size === 0) {
-      console.log(`[SEMANTIC_CACHE] Cache is empty, no eviction needed`);
+      process.stdout.write(
+        `[SEMANTIC_CACHE] Cache is empty, no eviction needed\n`,
+      );
       return;
     }
 
@@ -167,8 +170,8 @@ class SemanticCache<T> {
         (Date.now() - entry.lastAccessed) / (24 * 60 * 60 * 1000); // Normalize to days
       const hybridScore = similarity - recencyScore * 0.2; // Adjust weight as needed
 
-      console.log(
-        `[SEMANTIC_CACHE] Entry ${entry.key}: similarity=${similarity.toFixed(4)}, recencyScore=${recencyScore.toFixed(4)}, hybridScore=${hybridScore.toFixed(4)}`,
+      process.stdout.write(
+        `[SEMANTIC_CACHE] Entry ${entry.key}: similarity=${similarity.toFixed(4)}, recencyScore=${recencyScore.toFixed(4)}, hybridScore=${hybridScore.toFixed(4)}\n`,
       );
 
       if (hybridScore < lowestSimilarity) {
@@ -177,8 +180,8 @@ class SemanticCache<T> {
       }
     }
 
-    console.log(
-      `[SEMANTIC_CACHE] Evicting entry with key: ${leastSimilarKey}, score: ${lowestSimilarity.toFixed(4)}`,
+    process.stdout.write(
+      `[SEMANTIC_CACHE] Evicting entry with key: ${leastSimilarKey}, score: ${lowestSimilarity.toFixed(4)}\n`,
     );
     this.cache.delete(leastSimilarKey);
   }
@@ -217,34 +220,38 @@ class HybridLRUMRUCache<T> {
   constructor(maxSize: number) {
     this.cache = new Map();
     this.maxSize = maxSize;
-    console.log(`[HYBRID_CACHE] Initialized with max size: ${maxSize}`);
+    process.stdout.write(
+      `[HYBRID_CACHE] Initialized with max size: ${maxSize}\n`,
+    );
   }
 
   public get(key: string): T | null {
-    console.log(`[HYBRID_CACHE] Attempting to get: ${key}`);
+    process.stdout.write(`[HYBRID_CACHE] Attempting to get: ${key}\n`);
     const entry = this.cache.get(key);
     if (entry) {
       // Update access count
       entry.accessCount++;
       entry.lastAccessed = Date.now();
       this.cacheHits++;
-      console.log(
-        `[HYBRID_CACHE] Cache HIT for key: ${key}, access count: ${entry.accessCount}, total hits: ${this.cacheHits}`,
+      process.stdout.write(
+        `[HYBRID_CACHE] Cache HIT for key: ${key}, access count: ${entry.accessCount}, total hits: ${this.cacheHits}\n`,
       );
       return entry.data;
     }
     this.cacheMisses++;
-    console.log(
-      `[HYBRID_CACHE] Cache MISS for key: ${key}, total misses: ${this.cacheMisses}`,
+    process.stdout.write(
+      `[HYBRID_CACHE] Cache MISS for key: ${key}, total misses: ${this.cacheMisses}\n`,
     );
     return null;
   }
 
   public set(key: string, data: T): void {
-    console.log(`[HYBRID_CACHE] Setting cache entry for key: ${key}`);
+    process.stdout.write(
+      `[HYBRID_CACHE] Setting cache entry for key: ${key}\n`,
+    );
     if (this.cache.size >= this.maxSize) {
-      console.log(
-        `[HYBRID_CACHE] Cache full (size: ${this.cache.size}), evicting entry`,
+      process.stdout.write(
+        `[HYBRID_CACHE] Cache full (size: ${this.cache.size}), evicting entry\n`,
       );
       this.evict();
     }
@@ -255,8 +262,8 @@ class HybridLRUMRUCache<T> {
       accessCount: 1,
       lastAccessed: Date.now(),
     });
-    console.log(
-      `[HYBRID_CACHE] Successfully set cache entry, new size: ${this.cache.size}`,
+    process.stdout.write(
+      `[HYBRID_CACHE] Successfully set cache entry, new size: ${this.cache.size}\n`,
     );
   }
 
@@ -268,8 +275,8 @@ class HybridLRUMRUCache<T> {
   } {
     const total = this.cacheHits + this.cacheMisses;
     const hitRate = total === 0 ? 0 : this.cacheHits / total;
-    console.log(
-      `[HYBRID_CACHE] Stats - Hits: ${this.cacheHits}, Misses: ${this.cacheMisses}, Size: ${this.cache.size}, Hit Rate: ${hitRate.toFixed(2)}`,
+    process.stdout.write(
+      `[HYBRID_CACHE] Stats - Hits: ${this.cacheHits}, Misses: ${this.cacheMisses}, Size: ${this.cache.size}, Hit Rate: ${hitRate.toFixed(2)}\n`,
     );
     return {
       hits: this.cacheHits,
@@ -280,11 +287,13 @@ class HybridLRUMRUCache<T> {
   }
 
   private evict(): void {
-    console.log(
-      `[HYBRID_CACHE] Starting eviction process for cache with size: ${this.cache.size}`,
+    process.stdout.write(
+      `[HYBRID_CACHE] Starting eviction process for cache with size: ${this.cache.size}\n`,
     );
     if (this.cache.size === 0) {
-      console.log(`[HYBRID_CACHE] Cache is empty, no eviction needed`);
+      process.stdout.write(
+        `[HYBRID_CACHE] Cache is empty, no eviction needed\n`,
+      );
       return;
     }
 
@@ -310,18 +319,20 @@ class HybridLRUMRUCache<T> {
       const aScore = normalizedAFreq * 0.6 + normalizedARecency * 0.4;
       const bScore = normalizedBFreq * 0.6 + normalizedBRecency * 0.4;
 
-      console.log(
-        `[HYBRID_CACHE] Entry ${a[0]}: accessCount=${aEntry.accessCount}, recency=${aRecency}ms, score=${aScore.toFixed(4)}`,
+      process.stdout.write(
+        `[HYBRID_CACHE] Entry ${a[0]}: accessCount=${aEntry.accessCount}, recency=${aRecency}ms, score=${aScore.toFixed(4)}\n`,
       );
-      console.log(
-        `[HYBRID_CACHE] Entry ${b[0]}: accessCount=${bEntry.accessCount}, recency=${bRecency}ms, score=${bScore.toFixed(4)}`,
+      process.stdout.write(
+        `[HYBRID_CACHE] Entry ${b[0]}: accessCount=${bEntry.accessCount}, recency=${bRecency}ms, score=${bScore.toFixed(4)}\n`,
       );
 
       return aScore - bScore;
     });
 
     // Remove lowest hybrid score
-    console.log(`[HYBRID_CACHE] Evicting entry with key: ${entries[0][0]}`);
+    process.stdout.write(
+      `[HYBRID_CACHE] Evicting entry with key: ${entries[0][0]}\n`,
+    );
     this.cache.delete(entries[0][0]);
   }
 }
@@ -336,22 +347,22 @@ export class KnowledgeBase {
   private sessionCache: HybridLRUMRUCache<any[]>;
 
   constructor() {
-    console.log(`[KNOWLEDGE_BASE] Initializing KnowledgeBase`);
+    process.stdout.write(`[KNOWLEDGE_BASE] Initializing KnowledgeBase\n`);
     this.openai = new OpenAI({ apiKey: OPENAI_API_KEY });
-    console.log(`[KNOWLEDGE_BASE] OpenAI client initialized`);
+    process.stdout.write(`[KNOWLEDGE_BASE] OpenAI client initialized\n`);
 
     this.neo4jDriver = neo4j.driver(
       NEO4J_URI,
       neo4j.auth.basic(NEO4J_USER, NEO4J_PASSWORD),
     );
-    console.log(
-      `[KNOWLEDGE_BASE] Neo4j driver initialized with URI: ${NEO4J_URI}`,
+    process.stdout.write(
+      `[KNOWLEDGE_BASE] Neo4j driver initialized with URI: ${NEO4J_URI}\n`,
     );
 
     this.pineconeClient = new Pinecone({
       apiKey: PINECONE_API_KEY,
     });
-    console.log(`[KNOWLEDGE_BASE] Pinecone client initialized`);
+    process.stdout.write(`[KNOWLEDGE_BASE] Pinecone client initialized\n`);
 
     this.contextCache = new SemanticCache<ContextResult>(
       CONTEXT_CACHE_SIZE,
@@ -363,18 +374,18 @@ export class KnowledgeBase {
   }
 
   private async initPineconeClient(): Promise<void> {
-    console.log(
-      `[KNOWLEDGE_BASE] Initializing Pinecone client and index: ${PINECONE_INDEX_NAME}`,
+    process.stdout.write(
+      `[KNOWLEDGE_BASE] Initializing Pinecone client and index: ${PINECONE_INDEX_NAME}\n`,
     );
     try {
       const indexesList = await this.pineconeClient.listIndexes();
-      console.log(
-        `[KNOWLEDGE_BASE] Retrieved Pinecone indexes: ${JSON.stringify(indexesList.indexes?.map((i) => i.name) || [])}`,
+      process.stdout.write(
+        `[KNOWLEDGE_BASE] Retrieved Pinecone indexes: ${JSON.stringify(indexesList.indexes?.map((i) => i.name) || [])}\n`,
       );
 
       if (!indexesList.indexes?.find((im) => im.name == PINECONE_INDEX_NAME)) {
-        console.log(
-          `[KNOWLEDGE_BASE] Index ${PINECONE_INDEX_NAME} not found, creating new index`,
+        process.stdout.write(
+          `[KNOWLEDGE_BASE] Index ${PINECONE_INDEX_NAME} not found, creating new index\n`,
         );
         await this.pineconeClient.createIndex({
           name: PINECONE_INDEX_NAME,
@@ -387,65 +398,67 @@ export class KnowledgeBase {
             },
           },
         });
-        console.log(
-          `[KNOWLEDGE_BASE] Successfully created index: ${PINECONE_INDEX_NAME}`,
+        process.stdout.write(
+          `[KNOWLEDGE_BASE] Successfully created index: ${PINECONE_INDEX_NAME}\n`,
         );
       } else {
-        console.log(
-          `[KNOWLEDGE_BASE] Index ${PINECONE_INDEX_NAME} already exists`,
+        process.stdout.write(
+          `[KNOWLEDGE_BASE] Index ${PINECONE_INDEX_NAME} already exists\n`,
         );
       }
 
       this.pineconeIndex = this.pineconeClient.Index(PINECONE_INDEX_NAME);
-      console.log(
-        `[KNOWLEDGE_BASE] Successfully connected to index: ${PINECONE_INDEX_NAME}`,
+      process.stdout.write(
+        `[KNOWLEDGE_BASE] Successfully connected to index: ${PINECONE_INDEX_NAME}\n`,
       );
 
       await this.initDatabase();
     } catch (error) {
-      console.error(
-        `[KNOWLEDGE_BASE] Error initializing Pinecone client:`,
-        error,
+      process.stderr.write(
+        `[KNOWLEDGE_BASE] Error initializing Pinecone client: ${error}\n`,
       );
       throw error;
     }
   }
 
   private async initDatabase(): Promise<void> {
-    console.log(`[KNOWLEDGE_BASE] Initializing Neo4j database schema`);
+    process.stdout.write(
+      `[KNOWLEDGE_BASE] Initializing Neo4j database schema\n`,
+    );
     const session = this.neo4jDriver.session();
     try {
-      console.log(`[KNOWLEDGE_BASE] Creating user_id constraint`);
+      process.stdout.write(`[KNOWLEDGE_BASE] Creating user_id constraint\n`);
       await session.run(`
         CREATE CONSTRAINT user_id IF NOT EXISTS 
         FOR (u:User) REQUIRE u.user_id IS UNIQUE
       `);
 
-      console.log(`[KNOWLEDGE_BASE] Creating session_id constraint`);
+      process.stdout.write(`[KNOWLEDGE_BASE] Creating session_id constraint\n`);
       await session.run(`
         CREATE CONSTRAINT session_id IF NOT EXISTS 
         FOR (s:Session) REQUIRE s.session_id IS UNIQUE
       `);
 
-      console.log(`[KNOWLEDGE_BASE] Creating message_id constraint`);
+      process.stdout.write(`[KNOWLEDGE_BASE] Creating message_id constraint\n`);
       await session.run(`
         CREATE CONSTRAINT message_id IF NOT EXISTS 
         FOR (m:Message) REQUIRE m.message_id IS UNIQUE
       `);
 
-      console.log(`[KNOWLEDGE_BASE] Creating message_vector_id index`);
+      process.stdout.write(
+        `[KNOWLEDGE_BASE] Creating message_vector_id index\n`,
+      );
       await session.run(`
         CREATE INDEX message_vector_id IF NOT EXISTS 
         FOR (m:Message) ON (m.vector_id)
       `);
 
-      console.log(
-        `[KNOWLEDGE_BASE] Successfully initialized Neo4j database schema`,
+      process.stdout.write(
+        `[KNOWLEDGE_BASE] Successfully initialized Neo4j database schema\n`,
       );
     } catch (error) {
-      console.error(
-        `[KNOWLEDGE_BASE] Error initializing Neo4j database:`,
-        error,
+      process.stderr.write(
+        `[KNOWLEDGE_BASE] Error initializing Neo4j database: ${error}\n`,
       );
       throw error;
     } finally {
@@ -454,20 +467,22 @@ export class KnowledgeBase {
   }
 
   private async generateEmbedding(text: string): Promise<number[]> {
-    console.log(
-      `[KNOWLEDGE_BASE] Generating embedding for text of length: ${text.length}`,
+    process.stdout.write(
+      `[KNOWLEDGE_BASE] Generating embedding for text of length: ${text.length}\n`,
     );
     try {
       const response = await this.openai.embeddings.create({
         model: EMBEDDING_MODEL,
         input: text,
       });
-      console.log(
-        `[KNOWLEDGE_BASE] Successfully generated embedding with dimension: ${response.data[0].embedding.length}`,
+      process.stdout.write(
+        `[KNOWLEDGE_BASE] Successfully generated embedding with dimension: ${response.data[0].embedding.length}\n`,
       );
       return response.data[0].embedding;
     } catch (error) {
-      console.error(`[KNOWLEDGE_BASE] Error generating embedding:`, error);
+      process.stderr.write(
+        `[KNOWLEDGE_BASE] Error generating embedding: ${error}\n`,
+      );
       throw error;
     }
   }
@@ -479,21 +494,21 @@ export class KnowledgeBase {
     role: string = "user",
     metadata: RecordMetadata,
   ): Promise<string> {
-    console.log(
-      `[KNOWLEDGE_BASE] Storing message - userId: ${userId}, sessionId: ${sessionId}, role: ${role}, contentLength: ${messageContent.length}`,
+    process.stdout.write(
+      `[KNOWLEDGE_BASE] Storing message - userId: ${userId}, sessionId: ${sessionId}, role: ${role}, contentLength: ${messageContent.length}\n`,
     );
     const messageId = uuidv4();
     const vectorId = `vec_${messageId}`;
     const timestamp = Date.now();
 
     try {
-      console.log(
-        `[KNOWLEDGE_BASE] Generating embedding for message: ${messageId}`,
+      process.stdout.write(
+        `[KNOWLEDGE_BASE] Generating embedding for message: ${messageId}\n`,
       );
       const embedding = await this.generateEmbedding(messageContent);
 
-      console.log(
-        `[KNOWLEDGE_BASE] Upserting vector to Pinecone - vectorId: ${vectorId}, namespace: ${userId}`,
+      process.stdout.write(
+        `[KNOWLEDGE_BASE] Upserting vector to Pinecone - vectorId: ${vectorId}, namespace: ${userId}\n`,
       );
       await this.pineconeIndex.namespace(userId).upsert([
         {
@@ -509,12 +524,14 @@ export class KnowledgeBase {
           },
         },
       ]);
-      console.log(`[KNOWLEDGE_BASE] Successfully upserted vector to Pinecone`);
+      process.stdout.write(
+        `[KNOWLEDGE_BASE] Successfully upserted vector to Pinecone\n`,
+      );
 
       const session = this.neo4jDriver.session();
       try {
-        console.log(
-          `[KNOWLEDGE_BASE] Storing message in Neo4j - messageId: ${messageId}`,
+        process.stdout.write(
+          `[KNOWLEDGE_BASE] Storing message in Neo4j - messageId: ${messageId}\n`,
         );
         await session.run(
           `
@@ -543,28 +560,31 @@ export class KnowledgeBase {
             metadataJson: JSON.stringify(metadata),
           },
         );
-        console.log(`[KNOWLEDGE_BASE] Successfully stored message in Neo4j`);
+        process.stdout.write(
+          `[KNOWLEDGE_BASE] Successfully stored message in Neo4j\n`,
+        );
 
-        console.log(
-          `[KNOWLEDGE_BASE] Invalidating session cache for sessionId: ${sessionId}`,
+        process.stdout.write(
+          `[KNOWLEDGE_BASE] Invalidating session cache for sessionId: ${sessionId}\n`,
         );
         this.sessionCache.set(sessionId, []);
       } catch (error) {
-        console.error(
-          `[KNOWLEDGE_BASE] Error storing message in Neo4j:`,
-          error,
+        process.stderr.write(
+          `[KNOWLEDGE_BASE] Error storing message in Neo4j: ${error}\n`,
         );
         throw error;
       } finally {
         await session.close();
       }
 
-      console.log(
-        `[KNOWLEDGE_BASE] Successfully stored message - messageId: ${messageId}`,
+      process.stdout.write(
+        `[KNOWLEDGE_BASE] Successfully stored message - messageId: ${messageId}\n`,
       );
       return messageId;
     } catch (error) {
-      console.error(`[KNOWLEDGE_BASE] Error in storeMessage:`, error);
+      process.stderr.write(
+        `[KNOWLEDGE_BASE] Error in storeMessage: ${error}\n`,
+      );
       throw error;
     }
   }
@@ -574,26 +594,28 @@ export class KnowledgeBase {
     queryText: string,
     topK: number = 5,
   ): Promise<ContextResult> {
-    console.log(
-      `[KNOWLEDGE_BASE] Getting message context - userId: ${userId}, queryLength: ${queryText.length}, topK: ${topK}`,
+    process.stdout.write(
+      `[KNOWLEDGE_BASE] Getting message context - userId: ${userId}, queryLength: ${queryText.length}, topK: ${topK}\n`,
     );
     try {
       const cacheKey = `context_${userId}_${this.hashString(queryText)}_${topK}`;
-      console.log(`[KNOWLEDGE_BASE] Cache key for context: ${cacheKey}`);
+      process.stdout.write(
+        `[KNOWLEDGE_BASE] Cache key for context: ${cacheKey}\n`,
+      );
 
       const cachedResult = await this.contextCache.get(cacheKey);
       if (cachedResult) {
-        console.log(
-          `[KNOWLEDGE_BASE] Returning cached context result with ${cachedResult.messages.length} messages and ${cachedResult.relatedSessions.length} sessions`,
+        process.stdout.write(
+          `[KNOWLEDGE_BASE] Returning cached context result with ${cachedResult.messages.length} messages and ${cachedResult.relatedSessions.length} sessions\n`,
         );
         return cachedResult;
       }
 
-      console.log(`[KNOWLEDGE_BASE] Generating embedding for query`);
+      process.stdout.write(`[KNOWLEDGE_BASE] Generating embedding for query\n`);
       const queryEmbedding = await this.generateEmbedding(queryText);
 
-      console.log(
-        `[KNOWLEDGE_BASE] Querying Pinecone for similar vectors - namespace: ${userId}, topK: ${topK}`,
+      process.stdout.write(
+        `[KNOWLEDGE_BASE] Querying Pinecone for similar vectors - namespace: ${userId}, topK: ${topK}\n`,
       );
       const queryResponse = await this.pineconeIndex.namespace(userId).query({
         vector: queryEmbedding,
@@ -603,13 +625,13 @@ export class KnowledgeBase {
       });
 
       const matches = queryResponse.matches || [];
-      console.log(
-        `[KNOWLEDGE_BASE] Pinecone returned ${matches.length} matches`,
+      process.stdout.write(
+        `[KNOWLEDGE_BASE] Pinecone returned ${matches.length} matches\n`,
       );
 
       if (matches.length === 0) {
-        console.log(
-          `[KNOWLEDGE_BASE] No matches found, returning empty result`,
+        process.stdout.write(
+          `[KNOWLEDGE_BASE] No matches found, returning empty result\n`,
         );
         const emptyResult = { messages: [], relatedSessions: [] };
         await this.contextCache.set(cacheKey, emptyResult, queryText);
@@ -617,13 +639,15 @@ export class KnowledgeBase {
       }
 
       const vectorIds = matches.map((match) => match.id);
-      console.log(
-        `[KNOWLEDGE_BASE] Vector IDs for Neo4j query: ${vectorIds.join(", ")}`,
+      process.stdout.write(
+        `[KNOWLEDGE_BASE] Vector IDs for Neo4j query: ${vectorIds.join(", ")}\n`,
       );
 
       const session = this.neo4jDriver.session();
       try {
-        console.log(`[KNOWLEDGE_BASE] Querying Neo4j for message context`);
+        process.stdout.write(
+          `[KNOWLEDGE_BASE] Querying Neo4j for message context\n`,
+        );
         const neo4jResult = await session.run(
           `
           MATCH (m:Message)
@@ -644,8 +668,8 @@ export class KnowledgeBase {
         `,
           { vectorIds },
         );
-        console.log(
-          `[KNOWLEDGE_BASE] Neo4j returned ${neo4jResult.records.length} session records`,
+        process.stdout.write(
+          `[KNOWLEDGE_BASE] Neo4j returned ${neo4jResult.records.length} session records\n`,
         );
 
         const sessionMessages: { [key: string]: any[] } = {};
@@ -656,8 +680,8 @@ export class KnowledgeBase {
           const messages = record.get("contextMessages");
           sessionMessages[sessionId] = messages;
           sessions.push(sessionId);
-          console.log(
-            `[KNOWLEDGE_BASE] Session ${sessionId} has ${messages.length} messages`,
+          process.stdout.write(
+            `[KNOWLEDGE_BASE] Session ${sessionId} has ${messages.length} messages\n`,
           );
         });
 
@@ -672,8 +696,8 @@ export class KnowledgeBase {
           );
         });
 
-        console.log(
-          `[KNOWLEDGE_BASE] Collected ${allContextMessages.length} total context messages across ${sessions.length} unique sessions`,
+        process.stdout.write(
+          `[KNOWLEDGE_BASE] Collected ${allContextMessages.length} total context messages across ${sessions.length} unique sessions\n`,
         );
 
         const contextResult = {
@@ -681,41 +705,44 @@ export class KnowledgeBase {
           relatedSessions: [...new Set(sessions)],
         };
 
-        console.log(`[KNOWLEDGE_BASE] Caching context result`);
+        process.stdout.write(`[KNOWLEDGE_BASE] Caching context result\n`);
         await this.contextCache.set(cacheKey, contextResult, queryText);
 
         return contextResult;
       } catch (error) {
-        console.error(
-          `[KNOWLEDGE_BASE] Error querying Neo4j for context:`,
-          error,
+        process.stderr.write(
+          `[KNOWLEDGE_BASE] Error querying Neo4j for context: ${error}\n`,
         );
         throw error;
       } finally {
         await session.close();
       }
     } catch (error) {
-      console.error(`[KNOWLEDGE_BASE] Error in getMsgContext:`, error);
+      process.stderr.write(
+        `[KNOWLEDGE_BASE] Error in getMsgContext: ${error}\n`,
+      );
       throw error;
     }
   }
 
   public async getSessionHistory(sessionId: string): Promise<any[]> {
-    console.log(
-      `[KNOWLEDGE_BASE] Getting session history - sessionId: ${sessionId}`,
+    process.stdout.write(
+      `[KNOWLEDGE_BASE] Getting session history - sessionId: ${sessionId}\n`,
     );
     try {
       const cachedResult = this.sessionCache.get(sessionId);
       if (cachedResult) {
-        console.log(
-          `[KNOWLEDGE_BASE] Returning cached session history with ${cachedResult.length} messages`,
+        process.stdout.write(
+          `[KNOWLEDGE_BASE] Returning cached session history with ${cachedResult.length} messages\n`,
         );
         return cachedResult;
       }
 
       const session = this.neo4jDriver.session();
       try {
-        console.log(`[KNOWLEDGE_BASE] Querying Neo4j for session history`);
+        process.stdout.write(
+          `[KNOWLEDGE_BASE] Querying Neo4j for session history\n`,
+        );
         const result = await session.run(
           `
           MATCH (m:Message)-[:PART_OF]->(:Session {session_id: $sessionId})
@@ -725,15 +752,15 @@ export class KnowledgeBase {
         `,
           { sessionId },
         );
-        console.log(
-          `[KNOWLEDGE_BASE] Neo4j returned ${result.records.length} messages for session`,
+        process.stdout.write(
+          `[KNOWLEDGE_BASE] Neo4j returned ${result.records.length} messages for session\n`,
         );
 
         const messages = result.records.map((record) => {
           const content = record.get("content");
           const metadata = record.get("metadata");
-          console.log(
-            `[KNOWLEDGE_BASE] Processing message with content length: ${content.length}, has metadata: ${!!metadata}`,
+          process.stdout.write(
+            `[KNOWLEDGE_BASE] Processing message with content length: ${content.length}, has metadata: ${!!metadata}\n`,
           );
           return {
             content: content,
@@ -743,23 +770,24 @@ export class KnowledgeBase {
           };
         });
 
-        console.log(
-          `[KNOWLEDGE_BASE] Caching session history with ${messages.length} messages`,
+        process.stdout.write(
+          `[KNOWLEDGE_BASE] Caching session history with ${messages.length} messages\n`,
         );
         this.sessionCache.set(sessionId, messages);
 
         return messages;
       } catch (error) {
-        console.error(
-          `[KNOWLEDGE_BASE] Error querying Neo4j for session history:`,
-          error,
+        process.stderr.write(
+          `[KNOWLEDGE_BASE] Error querying Neo4j for session history: ${error}\n`,
         );
         throw error;
       } finally {
         await session.close();
       }
     } catch (error) {
-      console.error(`[KNOWLEDGE_BASE] Error in getSessionHistory:`, error);
+      process.stderr.write(
+        `[KNOWLEDGE_BASE] Error in getSessionHistory: ${error}\n`,
+      );
       throw error;
     }
   }
@@ -778,14 +806,14 @@ export class KnowledgeBase {
       hitRate: number;
     };
   } {
-    console.log(`[KNOWLEDGE_BASE] Getting cache stats`);
+    process.stdout.write(`[KNOWLEDGE_BASE] Getting cache stats\n`);
     const contextStats = this.contextCache.getStats();
     const sessionStats = this.sessionCache.getStats();
-    console.log(
-      `[KNOWLEDGE_BASE] Context cache stats: ${JSON.stringify(contextStats)}`,
+    process.stdout.write(
+      `[KNOWLEDGE_BASE] Context cache stats: ${JSON.stringify(contextStats)}\n`,
     );
-    console.log(
-      `[KNOWLEDGE_BASE] Session cache stats: ${JSON.stringify(sessionStats)}`,
+    process.stdout.write(
+      `[KNOWLEDGE_BASE] Session cache stats: ${JSON.stringify(sessionStats)}\n`,
     );
     return {
       contextCache: contextStats,
@@ -803,8 +831,10 @@ export class KnowledgeBase {
   }
 
   public async close(): Promise<void> {
-    console.log(`[KNOWLEDGE_BASE] Closing Neo4j driver connection`);
+    process.stdout.write(`[KNOWLEDGE_BASE] Closing Neo4j driver connection\n`);
     await this.neo4jDriver.close();
-    console.log(`[KNOWLEDGE_BASE] Successfully closed Neo4j driver connection`);
+    process.stdout.write(
+      `[KNOWLEDGE_BASE] Successfully closed Neo4j driver connection`,
+    );
   }
 }
